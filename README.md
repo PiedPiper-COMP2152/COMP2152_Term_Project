@@ -1,24 +1,26 @@
 # COMP2152 — Term Project: CTF Bug Bounty
 
 ## Team Name
-<!-- Replace with your team name -->
-Team _______
+Team PiedPiper
 
 ## Team Members
 
-| Member | Vulnerability Found | Branch Name |
-|--------|-------------------|-------------|
-| _______ | _______ | _______ |
-| _______ | _______ | _______ |
-| _______ | _______ | _______ |
+| Member | Vulnerability Found       | Branch Name |
+|--------|-------------------|----------------------------------------------|
+| Yash   |JWT None Attack    |yash_jwt_alg_none|
+| Yatin  |Jenkins Version Disclosure | yatin_jenkins_version_disclosure.py |
+| Rabin  | Technology Stack Disclosure via HTTP Headers | rabin_api_stack_disclosure |
+| Ishan  | Exposed Git Server with Hardcoded Credentials| ishan_git_server_exposure |
+
 
 ## Videos
 
 Each team member records a short video (max 3 minutes) explaining their vulnerability. Add your YouTube links below:
 
-- Member 1: https://youtube.com/watch?v=_______
-- Member 2: https://youtube.com/watch?v=_______
-- Member 3: https://youtube.com/watch?v=_______
+- Yash : https://youtu.be/3-YX-zhPeg0  
+- Yatin: https://youtu.be/Zj2JHo3W71Y 
+- Rabin: https://www.youtube.com/watch?v=qKIIbL1Ae3A 
+- Ishan: https://youtu.be/gqGS9H8O0nM
 
 ## Target
 
